@@ -47,5 +47,5 @@ else
 fi
 
 echo "🚀 Running full bootstrap…"
-cd ~/work/dev-bootstrap
+cd ~/work/bootstrap-dev
 ./bootstrap.sh --full
