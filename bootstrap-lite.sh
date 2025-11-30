@@ -25,19 +25,27 @@ ensure_brew_pkg() {
 ensure_brew_pkg git
 ensure_brew_pkg gh
 
-echo "🔐 GitHub authentication…"
-gh auth login
-GH_USER="$(gh api user --jq .login)"
+echo "🔐 Checking GitHub authentication…"
 
-if [[ -d ~/work/bootstrap-dev/.git ]]; then
-  echo "📁 Existing bootstrap-dev repo detected — pulling latest changes…"
-  cd ~/work/bootstrap-dev
+if gh auth status >/dev/null 2>&1; then
+  echo "✔ Already authenticated with GitHub."
+else
+  echo "🔐 GitHub authentication required…"
+  gh auth login
+fi
+
+GH_USER="$(gh api user --jq .login)"
+echo "✔ Logged in as $GH_USER"
+
+if [[ -d ~/work/dev-bootstrap/.git ]]; then
+  echo "📁 Existing dev-bootstrap repo detected — pulling latest changes…"
+  cd ~/work/dev-bootstrap
   git pull --rebase || true
 else
   echo "⬇️  Cloning private bootstrap repo…"
-  gh repo clone "$GH_USER/bootstrap-dev" ~/work/bootstrap-dev
+  gh repo clone "$GH_USER/dev-bootstrap" ~/work/dev-bootstrap
 fi
 
 echo "🚀 Running full bootstrap…"
-cd ~/work/bootstrap-dev
+cd ~/work/dev-bootstrap
 ./bootstrap.sh --full
