@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+# Auto-detect device name
+DEVICE_NAME="$(scutil --get ComputerName 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
+echo "💻 Device name detected: $DEVICE_NAME"
+
 echo "🔧 Checking Homebrew…"
 if command -v brew >/dev/null 2>&1; then
   echo "🔧 Homebrew already installed — updating…"
@@ -61,4 +65,4 @@ if [[ -d ./scripts ]]; then
   chmod +x ./scripts/*.sh 2>/dev/null || true
 fi
 
-./bootstrap.sh --full
+./bootstrap.sh --full --device "$DEVICE_NAME"
