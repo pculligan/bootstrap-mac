@@ -55,4 +55,10 @@ if [[ ! -x ./bootstrap.sh ]]; then
   chmod +x ./bootstrap.sh || true
 fi
 
+# Ensure all scripts in scripts/ are executable
+if [[ -d ./scripts ]]; then
+  echo "🔧 Fixing permissions for all .sh files in scripts/…"
+  chmod +x ./scripts/*.sh 2>/dev/null || true
+fi
+
 ./bootstrap.sh --full
