@@ -28,10 +28,14 @@ ensure_brew_pkg gh
 echo "🔐 GitHub authentication…"
 gh auth login
 
-echo "⬇️  Cloning private bootstrap repo…"
-mkdir -p ~/work
-GH_USER="$(gh api user --jq .login)"
-gh repo clone "$GH_USER/dev-bootstrap" ~/work/dev-bootstrap
+if [[ -d ~/work/bootstrap-dev/.git ]]; then
+  echo "📁 Existing bootstrap-dev repo detected — pulling latest changes…"
+  cd ~/work/bootstrap-dev
+  git pull --rebase || true
+else
+  echo "⬇️  Cloning private bootstrap repo…"
+  gh repo clone "$GH_USER/bootstrap-dev" ~/work/bootstrap-dev
+fi
 
 echo "🚀 Running full bootstrap…"
 cd ~/work/dev-bootstrap
