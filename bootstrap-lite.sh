@@ -48,4 +48,11 @@ fi
 
 echo "🚀 Running full bootstrap…"
 cd ~/work/bootstrap-dev
+
+# Ensure bootstrap.sh is executable
+if [[ ! -x ./bootstrap.sh ]]; then
+  echo "🔧 Fixing permissions on bootstrap.sh…"
+  chmod +x ./bootstrap.sh || true
+fi
+
 ./bootstrap.sh --full
