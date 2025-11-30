@@ -27,6 +27,7 @@ ensure_brew_pkg gh
 
 echo "🔐 GitHub authentication…"
 gh auth login
+GH_USER="$(gh api user --jq .login)"
 
 if [[ -d ~/work/bootstrap-dev/.git ]]; then
   echo "📁 Existing bootstrap-dev repo detected — pulling latest changes…"
@@ -38,5 +39,5 @@ else
 fi
 
 echo "🚀 Running full bootstrap…"
-cd ~/work/dev-bootstrap
+cd ~/work/bootstrap-dev
 ./bootstrap.sh --full
