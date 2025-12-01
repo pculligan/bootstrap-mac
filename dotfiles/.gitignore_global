@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+*.swp
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/keybindings.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+
+# Logs
+*.log

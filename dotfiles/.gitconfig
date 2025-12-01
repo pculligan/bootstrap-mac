@@ -1,0 +1,36 @@
+[user]
+    name = Patrick Culligan
+    email = pculligan@patrickculligan.com
+
+[core]
+    editor = code --wait
+    excludesfile = ~/.gitignore_global
+    autocrlf = input
+
+[init]
+    defaultBranch = main
+
+[pull]
+    rebase = false
+
+[push]
+    default = current
+
+[color]
+    ui = auto
+
+[alias]
+    co = checkout
+    br = branch
+    ci = commit
+    st = status
+    lg = log --oneline --graph --decorate --all
+
+[credential]
+    helper = osxkeychain
+
+[fetch]
+    prune = true
+
+[safe]
+    directory = *

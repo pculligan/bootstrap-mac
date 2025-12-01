@@ -166,23 +166,34 @@ setup_shell() {
 }
 
 # =============================================================================
-# setup_dotfiles()
+# setup_dotfiles() — fetch from public repo
 # =============================================================================
 setup_dotfiles() {
-  log "Linking dotfiles..."
-  DOTFILES_DIR="$CONFIG_DIR/dotfiles"
+  log "Fetching and installing dotfiles from public repo..."
+
+  DOTFILES_URL_BASE="https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/dotfiles"
   TARGETS=(.zshrc .gitconfig .gitignore_global)
 
   for f in "${TARGETS[@]}"; do
-    src="$DOTFILES_DIR/$f"
+    src_url="$DOTFILES_URL_BASE/$f"
     dest="$HOME/$f"
-    [[ ! -f "$src" ]] && continue
 
+    echo "⬇️  Downloading $f from $src_url"
+    curl -fsSL "$src_url" -o "$dest.tmp" || {
+      warn "Failed to download $f — skipping."
+      continue
+    }
+
+    # Backup existing file if present and not a symlink
     if [[ -e "$dest" && ! -L "$dest" ]]; then
-      mv "$dest" "$dest.backup-$(date +%Y%m%d%H%M%S)"
+      backup="${dest}.backup-$(date +%Y%m%d%H%M%S)"
+      mv "$dest" "$backup"
+      echo "📦 Backed up existing $f to $backup"
     fi
 
-    ln -sf "$src" "$dest"
+    mv "$dest.tmp" "$dest"
+    chmod 644 "$dest"
+    echo "✔ Installed $f"
   done
 }
 
