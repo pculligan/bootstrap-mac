@@ -32,8 +32,7 @@
 
   "vscode_extensions": [
     "ms-python.python"
-  ]
-  ,
+],
   "runtime_managers": [
     "pyenv",
     "nvm",
@@ -55,8 +54,7 @@
 
   "terminal_theme": [
     "powerlevel10k"
-  ]
-  ,
+  ],
   "python_version": "3.14",
   "node_version": "lts"
 }
