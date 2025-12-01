@@ -24,6 +24,14 @@ else
   echo "🔧 Homebrew bash already installed."
 fi
 
+# Ensure jq is installed for JSON parsing
+if ! brew list jq >/dev/null 2>&1; then
+  echo "🔧 Installing jq…"
+  brew install jq
+else
+  echo "🔧 jq already installed."
+fi
+
 # Ensure PATH includes Homebrew bash
 PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
 export PATH
@@ -35,8 +43,13 @@ TMP_DL="$(mktemp /tmp/bootstrap-stage-1.XXXXXX)"
 
 curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-stage-1.sh -o "$TMP_DL"
 
+echo "⬇️  Downloading bootstrap-config.json into /tmp…"
+TMP_CONFIG="$(mktemp /tmp/bootstrap-config.XXXXXX.json)"
+curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-config.json -o "$TMP_CONFIG"
+echo "✔ bootstrap-config.json downloaded to $TMP_CONFIG"
+
 chmod +x "$TMP_DL"
 echo "✔ bootstrap-stage-1.sh downloaded to $TMP_DL"
 
 # Execute stage 1 under Homebrew bash
-exec /opt/homebrew/bin/bash "$TMP_DL" "$@"
+exec /opt/homebrew/bin/bash "$TMP_DL" --config "$TMP_CONFIG" "$@"

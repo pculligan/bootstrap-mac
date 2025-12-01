@@ -1,13 +1,32 @@
 #!/opt/homebrew/bin/bash
 set -euo pipefail
 
+# Parse --config argument (path to JSON)
+CONFIG_JSON=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config)
+      CONFIG_JSON="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+if [[ -z "$CONFIG_JSON" ]]; then
+  err "No --config <file.json> supplied. Stage 1 requires a configuration file."
+  exit 1
+fi
+
 # =============================================================================
 # Unified Bootstrap — JSON Driven
 # =============================================================================
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_DIR="$ROOT_DIR/config"
-CONFIG_JSON="$CONFIG_DIR/bootstrap-config.json"
+# CONFIG_DIR="$ROOT_DIR/config"
+# CONFIG_JSON="$CONFIG_DIR/bootstrap-config.json"
 LOG_DIR="$ROOT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
