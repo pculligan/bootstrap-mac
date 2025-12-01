@@ -1,0 +1,62 @@
+{
+  "tools": [
+    "jq",
+    "yq",
+    "fzf",
+    "ripgrep",
+    "fd",
+    "tree",
+    "htop",
+    "wget",
+    "curl",
+    "bat",
+    "tldr",
+    "zoxide"
+  ],
+
+  "apps": [
+    "iterm2",
+    "visual-studio-code",
+    "google-chrome",
+    "slack",
+    "raycast"
+  ],
+
+  "python": [
+    "requests"
+  ],
+
+  "node": [
+    "typescript"
+  ],
+
+  "vscode_extensions": [
+    "ms-python.python"
+  ]
+  ,
+  "runtime_managers": [
+    "pyenv",
+    "nvm",
+    "go",
+    "rust"
+  ],
+
+  "infra_devops": [
+    "awscli",
+    "terraform",
+    "kubectl",
+    "helm",
+    "k9s"
+  ],
+
+  "documentation_tools": [
+    "pandoc"
+  ],
+
+  "terminal_theme": [
+    "powerlevel10k"
+  ]
+  ,
+  "python_version": "3.14",
+  "node_version": "lts"
+}

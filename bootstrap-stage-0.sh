@@ -33,7 +33,7 @@ hash -r 2>/dev/null || true
 echo "⬇️  Downloading bootstrap-stage-1.sh into /tmp…"
 TMP_DL="$(mktemp /tmp/bootstrap-stage-1.XXXXXX)"
 
-curl -fsSL https://raw.githubusercontent.com/pculligan/mac-bootstrap/main/bootstrap-stage-1.sh -o "$TMP_DL"
+curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-stage-1.sh -o "$TMP_DL"
 
 chmod +x "$TMP_DL"
 echo "✔ bootstrap-stage-1.sh downloaded to $TMP_DL"

@@ -3,45 +3,26 @@
 This repository contains a small, safe, public bootstrap script that prepares a completely fresh Mac for my full environment automation.
 
 ```
-curl -fsSL https://raw.githubusercontent.com/pculligan/mac-bootstrap/main/bootstrap-lite.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-stage-0.sh | sh
 ```
 
 This single command:
 
 1. Installs or updates Homebrew  
-2. Installs or updates git and GitHub CLI (gh)  
-3. Prompts me to authenticate with GitHub  
-4. Detects my GitHub username  
-5. Creates a `~/work` directory  
-6. Clones my private `dev-bootstrap` repo into `~/work/dev-bootstrap`  
-7. Runs my full workstation bootstrap  
+2. Installs or updates Homebrew Bash  
+3. Downloads the unified bootstrap script and configuration  
+4. Runs the unified bootstrap under Homebrew Bash 5.x  
+5. Installs all CLI tools, apps, language runtimes, Python & Node globals  
+6. Configures my shell, Git, dotfiles, and VS Code extensions  
+7. Creates SSH identities (personal and/or corporate)  
+8. Finishes with a fully configured Mac exactly how I want it
 
-After a few minutes, my machine will be configured exactly the way I like.
+## 📁 Repository Structure
 
-## 🔒 Private Repo Requirements
+This repository intentionally contains everything needed for a full bootstrap:
 
-The repo must be named:
+- `bootstrap-stage-0.sh` — POSIX‑safe installer (always works on a fresh Mac)
+- `bootstrap-stage-1.sh` — unified bootstrap (requires Homebrew Bash 5.x)
+- `bootstrap-config.json` — declarative list of all tools, apps, runtimes, globals, themes, and extensions
 
-```
-dev-bootstrap
-```
-
-and must contain:
-
-- `bootstrap.sh`
-- `/scripts` folder
-- `/config` folder
-- dotfiles, package lists, app lists, etc.
-
-This repository (`mac-bootstrap`) intentionally contains no sensitive information and is safe to be public.
-
-## 🛠 Updating the Bootstrap Script
-
-Because this script is tiny, I rarely need to update it.
-
-Typical update reasons:
-
-- Homebrew changes installation path  
-- I rename my private repo  
-- I want to support additional authentication methods
-
+No private repositories are required.
