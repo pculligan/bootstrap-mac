@@ -3,7 +3,18 @@
 if [[ "$(ps -p $$ -o comm=)" != "/opt/homebrew/bin/bash" ]]; then
   if [[ -x /opt/homebrew/bin/bash ]]; then
     echo "🔄 Relaunching bootstrap-lite.sh under Homebrew bash…"
-    exec /opt/homebrew/bin/bash "$0" "$@"
+    exec /opt/homebrew/bin/bash -l "$0" "$@"
+  fi
+fi
+# Detect if macOS Terminal is forcing /bin/bash as the startup shell
+if [[ "$TERM_PROGRAM" == "Apple_Terminal" ]]; then
+  TERMINAL_SHELL_CMD="$(defaults read com.apple.Terminal 'Shell' 2>/dev/null || echo '')"
+  if echo "$TERMINAL_SHELL_CMD" | grep -q '/bin/bash'; then
+    echo "🚨 Terminal.app is configured to force /bin/bash as the startup shell."
+    echo "   This overrides your login shell and BREAKS bootstrap."
+    echo "   Please change this setting:"
+    echo "      Terminal → Settings → Profiles → Shell → Shells open with → Default login shell"
+    echo "   After changing it, restart Terminal."
   fi
 fi
 set -e
