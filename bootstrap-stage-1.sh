@@ -1,6 +1,6 @@
 #!/opt/homebrew/bin/bash
 
-set -euo pipefail
+set -eo pipefail
 
 echo "================ DEBUG: Stage-1 Shell Environment ================"
 echo "ps -p $$ -o comm=        => $(ps -p $$ -o comm=)"
@@ -63,7 +63,11 @@ json_list() {
 # =============================================================================
 install_tools() {
   log "Installing CLI tools…"
-  for p in $(json_list tools); do
+
+  json_list tools | while IFS= read -r p; do
+    p="${p-}"
+    [[ -z "$p" ]] && continue
+
     if brew list "$p" >/dev/null 2>&1; then
       log "Updating $p…"
       brew upgrade "$p" || true
