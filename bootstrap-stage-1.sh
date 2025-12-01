@@ -70,4 +70,4 @@ if [[ -d ./scripts ]]; then
   chmod +x ./scripts/*.sh 2>/dev/null || true
 fi
 
-./bootstrap.sh --full --device "$DEVICE_NAME"
+/opt/homebrew/bin/bash ./bootstrap.sh --full --device "$DEVICE_NAME"
