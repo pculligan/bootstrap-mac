@@ -8,6 +8,16 @@ if [[ "$(ps -p $$ -o comm=)" != "/opt/homebrew/bin/bash" ]]; then
 fi
 set -e
 
+# Ensure Homebrew bin directories are preferred in PATH (must happen before any bash calls)
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+echo "🔧 Updated PATH early to prefer Homebrew binaries."
+
+# Guard: ensure "bash" resolves to Homebrew bash
+if [[ "$(command -v bash)" != "/opt/homebrew/bin/bash" ]]; then
+  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+  hash -r
+fi
+
 # Auto-detect device name
 DEVICE_NAME="$(scutil --get ComputerName 2>/dev/null | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
 echo "💻 Device name detected: $DEVICE_NAME"
@@ -18,7 +28,7 @@ if command -v brew >/dev/null 2>&1; then
   brew update && brew upgrade
 else
   echo "🔧 Installing Homebrew…"
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  /opt/homebrew/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
 echo "🔧 Ensuring git and gh are installed/up-to-date…"
