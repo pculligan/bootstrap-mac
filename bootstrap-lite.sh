@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# Relaunch bootstrap-lite under Homebrew Bash if not already running under it
+if [[ "$(ps -p $$ -o comm=)" != "/opt/homebrew/bin/bash" ]]; then
+  if [[ -x /opt/homebrew/bin/bash ]]; then
+    echo "🔄 Relaunching bootstrap-lite.sh under Homebrew bash…"
+    exec /opt/homebrew/bin/bash "$0" "$@"
+  fi
+fi
 set -e
 
 # Auto-detect device name
