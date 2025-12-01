@@ -3,7 +3,7 @@
 if [[ "$(ps -p $$ -o comm=)" != "/opt/homebrew/bin/bash" ]]; then
   if [[ -x /opt/homebrew/bin/bash ]]; then
     echo "🔄 Relaunching bootstrap-lite.sh under Homebrew bash…"
-    exec /opt/homebrew/bin/bash -l "$0" "$@"
+    exec /opt/homebrew/bin/bash --noprofile --norc "$0" "$@"
   fi
 fi
 # Detect if macOS Terminal is forcing /bin/bash as the startup shell
