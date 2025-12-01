@@ -1,5 +1,17 @@
 #!/opt/homebrew/bin/bash
+
 set -euo pipefail
+
+echo "================ DEBUG: Stage-1 Shell Environment ================"
+echo "ps -p $$ -o comm=        => $(ps -p $$ -o comm=)"
+echo "Real BASH executable     => ${BASH:-"(undefined)"}"
+echo "Value of \$0             => $0"
+echo "Command: which bash       => $(which bash)"
+echo "Command: bash --version   => $(bash --version | head -n1 2>/dev/null)"
+echo "Command: /bin/bash --ver  => $(/bin/bash --version | head -n1 2>/dev/null)"
+echo "Command: /opt/homebrew/bin/bash --ver => $(/opt/homebrew/bin/bash --version | head -n1 2>/dev/null)"
+echo "-------------------------------------------------------------------"
+echo ""
 
 # Parse --config argument (path to JSON)
 CONFIG_JSON=""
