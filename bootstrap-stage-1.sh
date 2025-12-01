@@ -62,17 +62,17 @@ json_list() {
 # install_tools()
 # =============================================================================
 install_tools() {
-  log "Installing CLI tools…"
+  log "Installing CLI tools..."
 
   json_list tools | while IFS= read -r p; do
     p="${p-}"
     [[ -z "$p" ]] && continue
 
     if brew list "$p" >/dev/null 2>&1; then
-      log "Updating $p…"
+      log "Updating $p..."
       brew upgrade "$p" || true
     else
-      log "Installing $p…"
+      log "Installing $p..."
       brew install "$p" || true
     fi
   done
@@ -82,15 +82,15 @@ install_tools() {
 # install_langs()
 # =============================================================================
 install_langs() {
-  log "Installing language runtimes…"
+  log "Installing language runtimes..."
 
   # Runtime managers (brew-installed)
   for mgr in $(json_list runtime_managers); do
     if brew list "$mgr" >/dev/null 2>&1; then
-      log "Updating $mgr…"
+      log "Updating $mgr..."
       brew upgrade "$mgr" || true
     else
-      log "Installing $mgr…"
+      log "Installing $mgr..."
       brew install "$mgr" || true
     fi
   done
@@ -99,8 +99,8 @@ install_langs() {
   PY_VERSION="$(jq -r '.python_version // "3.14"' "$CONFIG_JSON")"
 
   if command -v pyenv >/dev/null 2>&1; then
-    if ! pyenv versions --bare | grep -qx "$PY_VERSION"; then
-      log "Installing Python $PY_VERSION via pyenv…"
+    if ! pyenv versions --bare | grep -q "^$PY_VERSION"; then
+      log "Installing Python $PY_VERSION via pyenv..."
       pyenv install -s "$PY_VERSION"
     fi
     pyenv global "$PY_VERSION"
@@ -113,10 +113,17 @@ install_langs() {
     . "$(brew --prefix nvm)/nvm.sh"
   fi
   if command -v nvm >/dev/null 2>&1; then
-    log "Installing Node ($NODE_VERSION)…"
-    nvm install "$NODE_VERSION"
-    nvm alias default "$NODE_VERSION"
-    nvm use default
+    if [[ "$NODE_VERSION" == "lts" ]]; then
+      log "Installing Node (LTS)..."
+      nvm install --lts
+      nvm alias default 'lts/*'
+      nvm use default
+    else
+      log "Installing Node ($NODE_VERSION)..."
+      nvm install "$NODE_VERSION"
+      nvm alias default "$NODE_VERSION"
+      nvm use default
+    fi
   fi
 }
 
@@ -124,7 +131,7 @@ install_langs() {
 # install_apps()
 # =============================================================================
 install_apps() {
-  log "Installing GUI applications…"
+  log "Installing GUI applications..."
   for app in $(json_list apps); do
     if brew list --cask "$app" >/dev/null 2>&1; then
       brew upgrade --cask "$app" || true
@@ -138,7 +145,7 @@ install_apps() {
 # setup_shell()
 # =============================================================================
 setup_shell() {
-  log "Configuring shell…"
+  log "Configuring shell..."
   ZPROFILE="$HOME/.zprofile"
   touch "$ZPROFILE"
 
@@ -162,7 +169,7 @@ setup_shell() {
 # setup_dotfiles()
 # =============================================================================
 setup_dotfiles() {
-  log "Linking dotfiles…"
+  log "Linking dotfiles..."
   DOTFILES_DIR="$CONFIG_DIR/dotfiles"
   TARGETS=(.zshrc .gitconfig .gitignore_global)
 
@@ -183,7 +190,7 @@ setup_dotfiles() {
 # setup_git()
 # =============================================================================
 setup_git() {
-  log "Configuring Git…"
+  log "Configuring Git..."
   git config --global init.defaultBranch main
   git config --global pull.rebase false
   git config --global push.default current
@@ -197,7 +204,7 @@ setup_git() {
 # setup_vscode()
 # =============================================================================
 setup_vscode() {
-  log "Installing VSCode extensions…"
+  log "Installing VSCode extensions..."
   if ! command -v code >/dev/null 2>&1; then
     warn "VS Code CLI not available."
     return
@@ -214,7 +221,7 @@ setup_vscode() {
 # setup_python()
 # =============================================================================
 setup_python() {
-  log "Installing global Python packages…"
+  log "Installing global Python packages..."
 
   if ! command -v pyenv >/dev/null 2>&1; then
     warn "pyenv missing — skipping."
@@ -235,7 +242,7 @@ setup_python() {
 # setup_node()
 # =============================================================================
 setup_node() {
-  log "Installing global Node packages…"
+  log "Installing global Node packages..."
 
   export NVM_DIR="$HOME/.nvm"
   if [[ -s "$(brew --prefix nvm)/nvm.sh" ]]; then
@@ -260,7 +267,7 @@ setup_ssh() {
   local mode="$1"
   local DEVICE_NAME="$2"
 
-  echo "🔐 Setting up SSH identities…"
+  echo "🔐 Setting up SSH identities..."
   echo "💻 Device: $DEVICE_NAME"
 
   local SSH_DIR="$HOME/.ssh"
@@ -284,18 +291,18 @@ setup_ssh() {
     if [[ -f "$KEYFILE" ]]; then
       echo "• Key exists — skipping generation."
     else
-      echo "• Generating new SSH key for $LABEL…"
+      echo "• Generating new SSH key for $LABEL..."
       ssh-keygen -t ed25519 -C "$LABEL@$(hostname)" -f "$KEYFILE" -N ""
     fi
 
     chmod 600 "$KEYFILE"
     chmod 644 "${KEYFILE}.pub"
 
-    echo "• Adding $LABEL key to ssh-agent…"
+    echo "• Adding $LABEL key to ssh-agent..."
     eval "$(ssh-agent -s)" >/dev/null
     ssh-add "$KEYFILE" || true
 
-    echo "• Ensuring SSH config entry for $LABEL…"
+    echo "• Ensuring SSH config entry for $LABEL..."
     local START_MARK="# >>> bootstrap-ssh $LABEL >>>"
     local END_MARK="# <<< bootstrap-ssh $LABEL <<<"
 
@@ -319,7 +326,7 @@ setup_ssh() {
     } >> "$SSH_CONFIG"
     chmod 600 "$SSH_CONFIG"
 
-    echo "• Uploading $LABEL key to GitHub…"
+    echo "• Uploading $LABEL key to GitHub..."
     if [[ "$LABEL" == "personal" ]]; then
       gh ssh-key add "${KEYFILE}.pub" \
         --title "personal-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
