@@ -36,12 +36,17 @@ if ! grep -qx "/opt/homebrew/bin/bash" /etc/shells; then
   echo "/opt/homebrew/bin/bash" | sudo tee -a /etc/shells >/dev/null
 fi
 
-# Switch the user's login shell to Homebrew bash
-if [[ "$SHELL" != "/opt/homebrew/bin/bash" ]]; then
-  echo "💡 Switching default shell to Homebrew bash… (requires password)"
-  chsh -s /opt/homebrew/bin/bash
+# Detect current login shell
+CURRENT_SHELL="$(dscl . -read /Users/$USER UserShell | awk '{print $2}')"
+echo "🔍 Current login shell: $CURRENT_SHELL"
+
+# Switch login shell to Homebrew bash if needed
+if [[ "$CURRENT_SHELL" != "/opt/homebrew/bin/bash" ]]; then
+  echo "💡 Switching login shell to Homebrew bash… (requires sudo)"
+  sudo chsh -s /opt/homebrew/bin/bash "$USER"
+  echo "✔ Login shell updated. You MUST close ALL terminal windows after bootstrap completes."
 else
-  echo "✔ Default shell is already Homebrew bash."
+  echo "✔ Login shell already set to Homebrew bash."
 fi
 
 # Confirm active bash version
