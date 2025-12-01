@@ -31,20 +31,17 @@ hash -r
 # Relaunch bootstrap-lite2 under Homebrew bash
 if [[ -x /opt/homebrew/bin/bash ]]; then
   echo "🔄 Launching bootstrap-lite2.sh under Homebrew bash…"
-  # Fetch latest bootstrap-lite2.sh from GitHub
-  echo "⬇️  Downloading latest bootstrap-lite2.sh…"
-  # Atomic download of bootstrap-lite2.sh (prevents macOS/VS Code write conflicts)
-  TMP_DL="/Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh.tmp"
+  # Download bootstrap-lite2 into a safe temporary file (macOS allows writing in /tmp)
+  echo "⬇️  Downloading bootstrap-lite2.sh into /tmp…"
+  TMP_DL="$(mktemp /tmp/bootstrap-lite2.XXXXXX)"
 
   curl -fsSL https://raw.githubusercontent.com/pculligan/mac-bootstrap/main/bootstrap-lite2.sh -o "$TMP_DL"
 
-  # Move atomically into place
-  mv "$TMP_DL" /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh
+  chmod +x "$TMP_DL"
+  echo "✔ bootstrap-lite2.sh downloaded to $TMP_DL"
 
-  chmod +x /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh
-  echo "✔ bootstrap-lite2.sh updated atomically."
-
-  exec /opt/homebrew/bin/bash /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh "$@"
+  # Execute stage 2 under Homebrew bash
+  exec /opt/homebrew/bin/bash "$TMP_DL" "$@"
 else
   echo "❌ Homebrew bash not found after install. Cannot continue."
   exit 1
