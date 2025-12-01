@@ -28,6 +28,7 @@ ensure_brew_pkg() {
 
 ensure_brew_pkg git
 ensure_brew_pkg gh
+ensure_brew_pkg bash
 
 echo "🔐 Checking GitHub authentication…"
 
