@@ -44,7 +44,7 @@ TMP_DL="$(mktemp /tmp/bootstrap-stage-1.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-stage-1.sh -o "$TMP_DL"
 
 echo "⬇️  Downloading bootstrap-config.json into /tmp…"
-TMP_CONFIG="$(mktemp /tmp/bootstrap-config.XXXXXX.json)"
+TMP_CONFIG="$(mktemp /tmp/bootstrap-config.json.XXXXXX)"
 curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-config.json -o "$TMP_CONFIG"
 echo "✔ bootstrap-config.json downloaded to $TMP_CONFIG"
 
