@@ -33,11 +33,16 @@ if [[ -x /opt/homebrew/bin/bash ]]; then
   echo "🔄 Launching bootstrap-lite2.sh under Homebrew bash…"
   # Fetch latest bootstrap-lite2.sh from GitHub
   echo "⬇️  Downloading latest bootstrap-lite2.sh…"
-  curl -fsSL https://raw.githubusercontent.com/pculligan/mac-bootstrap/main/bootstrap-lite2.sh \
-    -o /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh
+  # Atomic download of bootstrap-lite2.sh (prevents macOS/VS Code write conflicts)
+  TMP_DL="/Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh.tmp"
+
+  curl -fsSL https://raw.githubusercontent.com/pculligan/mac-bootstrap/main/bootstrap-lite2.sh -o "$TMP_DL"
+
+  # Move atomically into place
+  mv "$TMP_DL" /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh
 
   chmod +x /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh
-  echo "✔ bootstrap-lite2.sh updated."
+  echo "✔ bootstrap-lite2.sh updated atomically."
 
   exec /opt/homebrew/bin/bash /Users/patrickculligan/work/bootstrap-mac/bootstrap-lite2.sh "$@"
 else
