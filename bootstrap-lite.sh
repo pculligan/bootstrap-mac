@@ -30,6 +30,23 @@ ensure_brew_pkg git
 ensure_brew_pkg gh
 ensure_brew_pkg bash
 
+# Ensure Homebrew bash is a valid login shell
+if ! grep -qx "/opt/homebrew/bin/bash" /etc/shells; then
+  echo "🔧 Adding Homebrew bash to /etc/shells… (requires sudo)"
+  echo "/opt/homebrew/bin/bash" | sudo tee -a /etc/shells >/dev/null
+fi
+
+# Switch the user's login shell to Homebrew bash
+if [[ "$SHELL" != "/opt/homebrew/bin/bash" ]]; then
+  echo "💡 Switching default shell to Homebrew bash… (requires password)"
+  chsh -s /opt/homebrew/bin/bash
+else
+  echo "✔ Default shell is already Homebrew bash."
+fi
+
+# Confirm active bash version
+echo "🔧 Active bash version: $(/opt/homebrew/bin/bash --version | head -n 1)"
+
 echo "🔐 Checking GitHub authentication…"
 
 if gh auth status >/dev/null 2>&1; then
