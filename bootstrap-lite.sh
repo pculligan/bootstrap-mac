@@ -30,6 +30,10 @@ ensure_brew_pkg git
 ensure_brew_pkg gh
 ensure_brew_pkg bash
 
+# Ensure Homebrew bin directories are preferred in PATH
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+echo "🔧 Updated PATH to prefer Homebrew binaries."
+
 # Ensure Homebrew bash is a valid login shell
 if ! grep -qx "/opt/homebrew/bin/bash" /etc/shells; then
   echo "🔧 Adding Homebrew bash to /etc/shells… (requires sudo)"
