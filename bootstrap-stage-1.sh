@@ -85,7 +85,10 @@ install_langs() {
   log "Installing language runtimes..."
 
   # Runtime managers (brew-installed)
-  for mgr in $(json_list runtime_managers); do
+  json_list runtime_managers | while IFS= read -r mgr; do
+    mgr="${mgr-}"
+    [[ -z "$mgr" ]] && continue
+
     if brew list "$mgr" >/dev/null 2>&1; then
       log "Updating $mgr..."
       brew upgrade "$mgr" || true
@@ -97,6 +100,11 @@ install_langs() {
 
   # Python version from JSON
   PY_VERSION="$(jq -r '.python_version // "3.14"' "$CONFIG_JSON")"
+
+  # Ensure pyenv is initialized before using it
+  export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)"
 
   if command -v pyenv >/dev/null 2>&1; then
     if ! pyenv versions --bare | grep -q "^$PY_VERSION"; then
@@ -132,7 +140,11 @@ install_langs() {
 # =============================================================================
 install_apps() {
   log "Installing GUI applications..."
-  for app in $(json_list apps); do
+
+  json_list apps | while IFS= read -r app; do
+    app="${app-}"
+    [[ -z "$app" ]] && continue
+
     if brew list --cask "$app" >/dev/null 2>&1; then
       brew upgrade --cask "$app" || true
     else
@@ -221,7 +233,10 @@ setup_vscode() {
     return
   fi
 
-  for ext in $(json_list vscode_extensions); do
+  json_list vscode_extensions | while IFS= read -r ext; do
+    ext="${ext-}"
+    [[ -z "$ext" ]] && continue
+
     if ! code --list-extensions | grep -qx "$ext"; then
       code --install-extension "$ext" || true
     fi
@@ -244,7 +259,9 @@ setup_python() {
   eval "$(pyenv init -)"
 
   PIP_BIN="$(pyenv which pip3)"
-  for pkg in $(json_list python); do
+  json_list python | while IFS= read -r pkg; do
+    pkg="${pkg-}"
+    [[ -z "$pkg" ]] && continue
     "$PIP_BIN" install "$pkg"
   done
 }
@@ -266,7 +283,9 @@ setup_node() {
   fi
 
   NPM_BIN="$(dirname "$(nvm which current)")/npm"
-  for pkg in $(json_list node); do
+  json_list node | while IFS= read -r pkg; do
+    pkg="${pkg-}"
+    [[ -z "$pkg" ]] && continue
     "$NPM_BIN" install -g "$pkg"
   done
 }
