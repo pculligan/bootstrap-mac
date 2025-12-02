@@ -1,6 +1,17 @@
 #!/opt/homebrew/bin/bash
-
 set -eo pipefail
+
+# Track bootstrap timing
+BOOTSTRAP_START_TIME="$(date +%s)"
+
+# temporary files cleanup (if any are created later)
+TMP_FILES=()
+cleanup() {
+  for f in "${TMP_FILES[@]}"; do
+    [[ -f "$f" ]] && rm -f "$f"
+  done
+}
+trap cleanup EXIT
 
 echo "================ DEBUG: Stage-1 Shell Environment ================"
 echo "ps -p $$ -o comm=        => $(ps -p $$ -o comm=)"
@@ -12,6 +23,22 @@ echo "Command: /bin/bash --ver  => $(/bin/bash --version | head -n1 2>/dev/null)
 echo "Command: /opt/homebrew/bin/bash --ver => $(/opt/homebrew/bin/bash --version | head -n1 2>/dev/null)"
 echo "-------------------------------------------------------------------"
 echo ""
+
+# =============================================================================
+# Rosetta detection & optional installation
+# =============================================================================
+if [[ "$(uname -m)" == "arm64" ]]; then
+  if ! pkgutil --files com.apple.rosetta.update >/dev/null 2>&1; then
+    echo "🔍 Rosetta not installed — installing..."
+    if softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1; then
+      echo "✔ Rosetta installed."
+    else
+      echo "⚠️ Rosetta installation failed or requires manual approval."
+    fi
+  else
+    echo "✔ Rosetta already installed."
+  fi
+fi
 
 # Parse --config argument (path to JSON)
 CONFIG_JSON=""
@@ -56,6 +83,25 @@ fi
 json_list() {
   local key="$1"
   jq -r ".$key[]?" "$CONFIG_JSON" 2>/dev/null || true
+}
+
+# =============================================================================
+# bootstrap_verify() — dry-run / diagnostics
+# =============================================================================
+bootstrap_verify() {
+  echo ""
+  echo "================ VERIFICATION MODE ================"
+  echo "🔧 Bash version: $(bash --version | head -n1)"
+  echo "🔧 Homebrew: $(brew --version | head -n1)"
+  echo "🔧 jq: $(jq --version)"
+  echo "🔧 pyenv: $(pyenv --version 2>/dev/null || echo 'not installed')"
+  echo "🔧 nvm: $(nvm --version 2>/dev/null || echo 'not installed')"
+  echo "🔧 Node: $(node --version 2>/dev/null || echo 'not installed')"
+  echo "🔧 Python: $(python3 --version 2>/dev/null || echo 'not installed')"
+  echo "🔧 SSH keys present:"
+  ls -1 ~/.ssh/id_ed25519_* 2>/dev/null || echo "❌ No SSH keys found"
+  echo "==================================================="
+  exit 0
 }
 
 # =============================================================================
@@ -430,6 +476,7 @@ DEVICE_NAME=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --verify) bootstrap_verify; shift;;
     --full) PROFILE="full"; shift;;
     --minimal) PROFILE="minimal"; shift;;
     --apps-only) PROFILE="apps-only"; shift;;
@@ -482,3 +529,6 @@ case "$PROFILE" in
 esac
 
 log "Bootstrap complete!"
+BOOTSTRAP_END_TIME="$(date +%s)"
+DURATION="$(( BOOTSTRAP_END_TIME - BOOTSTRAP_START_TIME ))"
+echo "⏱  Total bootstrap time: ${DURATION}s"
