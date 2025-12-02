@@ -429,26 +429,39 @@ setup_ssh() {
     } >> "$SSH_CONFIG"
     chmod 600 "$SSH_CONFIG"
 
-    echo "• Uploading $LABEL key to GitHub..."
+    echo "• Checking if $LABEL key is already uploaded to GitHub..."
+
+    KEY_CONTENT="$(cat "${KEYFILE}.pub")"
 
     if [[ "$LABEL" == "personal" ]]; then
-      ensure_gh_scope "github.com"
-      gh ssh-key add "${KEYFILE}.pub" \
-        --title "personal-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
-        || echo "⚠️ Could not upload personal key — even after scope refresh."
+      # Check if the key already exists on GitHub
+      if gh api /user/keys --jq '.[].key' 2>/dev/null | grep -Fxq "$KEY_CONTENT"; then
+        echo "✔ $LABEL key already exists on GitHub — skipping upload."
+      else
+        echo "• Uploading $LABEL key to GitHub..."
+        ensure_gh_scope "github.com"
+        gh ssh-key add "${KEYFILE}.pub" \
+          --title "personal-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
+          || echo "⚠️ Could not upload personal key — even after scope refresh."
+      fi
 
     else
-      # Ensure auth for corporate host
+      # For corporate identity
       if ! gh auth status --hostname github.com-corp >/dev/null 2>&1; then
         echo "🔐 Authenticating GitHub CLI for corporate identity..."
         gh auth login --hostname github.com-corp
       fi
 
-      ensure_gh_scope "github.com-corp"
-      gh ssh-key add "${KEYFILE}.pub" \
-        --title "corp-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
-        --hostname github.com-corp \
-        || echo "⚠️ Could not upload corp key — even after scope refresh."
+      if gh api --hostname github.com-corp /user/keys --jq '.[].key' 2>/dev/null | grep -Fxq "$KEY_CONTENT"; then
+        echo "✔ corp key already exists on github.com-corp — skipping upload."
+      else
+        echo "• Uploading corp key to github.com-corp..."
+        ensure_gh_scope "github.com-corp"
+        gh ssh-key add "${KEYFILE}.pub" \
+          --title "corp-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
+          --hostname github.com-corp \
+          || echo "⚠️ corporate key upload failed — even after scope refresh."
+      fi
     fi
 
     echo "✔ $LABEL identity setup complete."
