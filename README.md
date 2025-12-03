@@ -1,5 +1,5 @@
 # 🚀 Mac Bootstrap  
-A fully automated, JSON‑driven macOS bootstrap pipeline.
+A fully automated macOS basic dev bootstrap pipeline.
 
 This repository provides a **safe**, **public**, **repeatable**, and **idempotent** bootstrap system that configures a completely fresh Mac into a fully working development environment with one command:
 
@@ -50,7 +50,7 @@ Executed via `sh`, this script:
 - Downloads stage‑1 and bootstrap‑config.json into `/tmp`  
 - Executes stage‑1 under Homebrew Bash 5.x  
 
-Stage‑0 has **zero dependencies** and works on any new macOS installation.
+Stage‑0 has **zero dependencies** and works on any new Apple Silicon macOS installation.
 
 
 ## Stage 1 — Unified Bootstrap  
@@ -190,7 +190,7 @@ The bootstrap fully manages:
 Same process, but under `github.com-corp` hostname.
 
 ### ✔ Idempotent  
-SSH config blocks are replaced cleanly on each run.
+SSH config blocks are fully regenerated on each run while GitHub key upload is skipped if the key already exists.
 
 
 # 🔧 Verification Mode
