@@ -532,9 +532,9 @@ ensure_gh_scope() {
   local scopes=""
   scopes="$(gh auth status --hostname "$gh_host" --json scopes -q '.scopes[]?' 2>/dev/null | tr '\n' ' ' || true)"
 
-  if [[ "$scopes" =~ $required_scope ]]; then
-    echo "✔ $gh_host already has required scope: '$required_scope'"
-    return 0
+  if [[ "$scopes" == *"$required_scope"* ]]; then
+      echo "✔ $gh_host already has required scope: '$required_scope'"
+      return 0
   fi
 
   echo "⚠️ '$required_scope' scope missing for $gh_host — requesting now…"
