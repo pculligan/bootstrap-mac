@@ -785,6 +785,12 @@ Examples:
   ${HELPER_NAME} upgrade
   ${HELPER_NAME} install java 21
   ${HELPER_NAME} install container orbstack
+
+Additional Common Installs
+  brew install --cask whatsapp
+  brew install --cask chatgpt
+  brew install --cask vnc-viewer
+
 EOF
 }
 
