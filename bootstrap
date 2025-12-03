@@ -1,0 +1,838 @@
+#!/opt/homebrew/bin/bash
+
+
+set -euo pipefail
+
+HELPER_NAME="bootstrap"
+
+
+REPO_BASE="https://raw.githubusercontent.com/pculligan/bootstrap-mac/main"
+
+CONFIG_PATH="$HOME/.config/bootstrap-mac/bootstrap-config.json"
+
+
+# =============================================================================
+# Local verification engine (migrated from Stage-1)
+# =============================================================================
+verify_local() {
+  ensure_brew
+  ensure_config
+
+  echo ""
+  echo "================ VERIFICATION MODE ================"
+
+  echo "🔧 Bash version: $(bash --version | head -n1)"
+  echo "🔧 Homebrew: $(brew --version | head -n1 2>/dev/null || echo 'brew not found')"
+  echo "🔧 jq: $(jq --version 2>/dev/null || echo 'jq not found')"
+  echo "🔧 pyenv: $(pyenv --version 2>/dev/null || echo 'pyenv not installed')"
+  echo "🔧 nvm: $(nvm --version 2>/dev/null || echo 'nvm not installed')"
+  echo "🔧 Node: $(node --version 2>/dev/null || echo 'node not installed')"
+  echo "🔧 Python: $(python3 --version 2>/dev/null || echo 'python3 not installed')"
+  echo "🔧 SSH keys present:"
+  ls -1 ~/.ssh/id_ed25519_* 2>/dev/null || echo "❌ No SSH keys found"
+
+  echo ""
+  echo "🔍 Verifying required CLI tools and apps from bootstrap-config.json..."
+  echo ""
+
+  local ok=0
+
+  # Check CLI tools
+  while IFS= read -r tool; do
+    [[ -z "$tool" ]] && continue
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      warn "Required CLI tool missing: $tool"
+      ok=1
+    else
+      echo "✔ Tool present: $tool"
+    fi
+  done < <(json_list tools)
+
+  echo ""
+
+  # Check apps (casks)
+  while IFS= read -r app; do
+    [[ -z "$app" ]] && continue
+    if ! brew list --cask "$app" >/dev/null 2>&1; then
+      warn "Required GUI app not installed: $app"
+      ok=1
+    else
+      echo "✔ App present (cask): $app"
+    fi
+  done < <(json_list apps)
+
+  echo "==================================================="
+
+  if (( ok == 0 )); then
+    echo "✅ Verification passed: required tools and apps are installed."
+    exit 0
+  else
+    echo "❌ Verification failed."
+    exit 1
+  fi
+}
+
+ensure_config() {
+  if [[ -f "$CONFIG_PATH" ]]; then
+    return
+  fi
+
+  log "Local config not found at $CONFIG_PATH — downloading from repo..."
+  mkdir -p "$(dirname "$CONFIG_PATH")"
+  curl -fsSL "${REPO_BASE}/bootstrap-config.json" -o "$CONFIG_PATH"
+  echo "✔ Config installed at $CONFIG_PATH"
+}
+
+# Helper to extract JSON arrays
+json_list() {
+  local key="$1"
+  jq -r ".$key[]?" "$CONFIG_PATH" 2>/dev/null || true
+}
+
+log()  { echo "[$HELPER_NAME] $*"; }
+warn() { echo "[$HELPER_NAME][warn] $*" >&2; }
+err()  { echo "[$HELPER_NAME][error] $*" >&2; exit 1; }
+
+ensure_curl() {
+  if ! command -v curl >/dev/null 2>&1; then
+    err "curl is required but not installed."
+  fi
+}
+
+ensure_brew() {
+  if ! command -v brew >/dev/null 2>&1; then
+    err "Homebrew is required but not installed. Install from https://brew.sh"
+  fi
+}
+
+# =============================================================================
+# Core install functions (inlined from Stage-1)
+# =============================================================================
+
+install_tools() {
+  log "Installing CLI tools..."
+
+  json_list tools | while IFS= read -r p; do
+    p="${p-}"
+    [[ -z "$p" ]] && continue
+
+    if brew list "$p" >/dev/null 2>&1; then
+      log "Updating $p..."
+      brew upgrade "$p" || true
+    else
+      log "Installing $p..."
+      brew install "$p" || true
+    fi
+  done
+}
+
+install_langs() {
+  log "Installing language runtimes..."
+
+  # Runtime managers (brew-installed)
+  json_list runtime_managers | while IFS= read -r mgr; do
+    mgr="${mgr-}"
+    [[ -z "$mgr" ]] && continue
+
+    if brew list "$mgr" >/dev/null 2>&1; then
+      log "Updating $mgr..."
+      brew upgrade "$mgr" || true
+    else
+      log "Installing $mgr..."
+      brew install "$mgr" || true
+    fi
+  done
+
+  # Python version from JSON
+  PY_VERSION="$(jq -r '.python_version // "3.14"' "$CONFIG_PATH")"
+
+  # Ensure pyenv is initialized before using it
+  export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)" || true
+
+  if command -v pyenv >/dev/null 2>&1; then
+    if ! pyenv versions --bare | grep -q "^$PY_VERSION"; then
+      log "Installing Python $PY_VERSION via pyenv..."
+      pyenv install -s "$PY_VERSION"
+    fi
+    pyenv global "$PY_VERSION"
+  else
+    warn "pyenv not found — skipping Python runtime install."
+  fi
+
+  # Node version from JSON (via nvm)
+  NODE_VERSION="$(jq -r '.node_version // "lts"' "$CONFIG_PATH")"
+  export NVM_DIR="$HOME/.nvm"
+  if [[ -s "$(brew --prefix nvm)/nvm.sh" ]]; then
+    . "$(brew --prefix nvm)/nvm.sh"
+  fi
+  if command -v nvm >/dev/null 2>&1; then
+    if [[ "$NODE_VERSION" == "lts" ]]; then
+      log "Installing Node (LTS)..."
+      nvm install --lts
+      nvm alias default 'lts/*'
+      nvm use default
+    else
+      log "Installing Node ($NODE_VERSION)..."
+      nvm install "$NODE_VERSION"
+      nvm alias default "$NODE_VERSION"
+      nvm use default
+    fi
+  else
+    warn "nvm not found — skipping Node runtime install."
+  fi
+}
+
+install_apps() {
+  log "Installing GUI applications..."
+
+  json_list apps | while IFS= read -r app; do
+    app="${app-}"
+    [[ -z "$app" ]] && continue
+
+    if brew list --cask "$app" >/dev/null 2>&1; then
+      log "Updating app (cask): $app"
+      brew upgrade --cask "$app" || true
+    else
+      log "Installing app (cask): $app"
+      brew install --cask "$app" || true
+    fi
+  done
+}
+
+# =============================================================================
+# setup_shell, setup_dotfiles, setup_git, setup_vscode, setup_python, setup_node
+# =============================================================================
+setup_shell() {
+  log "Configuring shell..."
+  local ZPROFILE
+  ZPROFILE="$HOME/.zprofile"
+  touch "$ZPROFILE"
+
+  # brew shellenv
+  if ! grep -q 'brew shellenv' "$ZPROFILE"; then
+    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$ZPROFILE"
+  fi
+
+  # PATH
+  if ! grep -q '/opt/homebrew/bin' "$ZPROFILE"; then
+    echo 'export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"' >> "$ZPROFILE"
+  fi
+
+  # Login shell
+  if [[ "$SHELL" != "/bin/zsh" ]]; then
+    chsh -s /bin/zsh || true
+  fi
+}
+
+setup_dotfiles() {
+  log "Fetching and installing dotfiles from public repo..."
+
+  local DOTFILES_URL_BASE="https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/dotfiles"
+  local TARGETS=(.zshrc .gitconfig .gitignore_global)
+
+  for f in "${TARGETS[@]}"; do
+    local src_url="$DOTFILES_URL_BASE/$f"
+    local dest="$HOME/$f"
+
+    echo "⬇️  Downloading $f from $src_url"
+    curl -fsSL "$src_url" -o "$dest.tmp" || {
+      warn "Failed to download $f — skipping."
+      continue
+    }
+
+    # Backup existing file if present and not a symlink
+    if [[ -e "$dest" && ! -L "$dest" ]]; then
+      local backup
+      backup="${dest}.backup-$(date +%Y%m%d%H%M%S)"
+      mv "$dest" "$backup"
+      echo "📦 Backed up existing $f to $backup"
+    fi
+
+    mv "$dest.tmp" "$dest"
+    chmod 644 "$dest"
+    echo "✔ Installed $f"
+  done
+}
+
+setup_git() {
+  log "Configuring Git..."
+  git config --global init.defaultBranch main
+  git config --global pull.rebase false
+  git config --global push.default current
+  git config --global core.editor "code --wait"
+  git config --global color.ui auto
+  git config --global core.excludesfile "$HOME/.gitignore_global"
+  git config --global fetch.prune true
+}
+
+setup_vscode() {
+  log "Installing VSCode extensions..."
+  if ! command -v code >/dev/null 2>&1; then
+    warn "VS Code CLI not available."
+    return
+  fi
+
+  json_list vscode_extensions | while IFS= read -r ext; do
+    ext="${ext-}"
+    [[ -z "$ext" ]] && continue
+
+    if ! code --list-extensions | grep -qx "$ext"; then
+      code --install-extension "$ext" || true
+    fi
+  done
+}
+
+setup_python() {
+  log "Installing global Python packages..."
+
+  if ! command -v pyenv >/dev/null 2>&1; then
+    warn "pyenv missing — skipping."
+    return
+  fi
+
+  export PYENV_ROOT="${PYENV_ROOT:-$HOME/.pyenv}"
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)" || true
+
+  local PIP_BIN
+  PIP_BIN="$(pyenv which pip3)"
+
+  json_list python | while IFS= read -r pkg; do
+    pkg="${pkg-}"
+    [[ -z "$pkg" ]] && continue
+    "$PIP_BIN" install "$pkg"
+  done
+}
+
+setup_node() {
+  log "Installing global Node packages..."
+
+  export NVM_DIR="$HOME/.nvm"
+  if [[ -s "$(brew --prefix nvm)/nvm.sh" ]]; then
+    . "$(brew --prefix nvm)/nvm.sh"
+  fi
+
+  if ! command -v nvm >/dev/null 2>&1; then
+    warn "nvm missing — skipping."
+    return
+  fi
+
+  local NPM_BIN
+  NPM_BIN="$(dirname "$(nvm which current)")/npm"
+
+  json_list node | while IFS= read -r pkg; do
+    pkg="${pkg-}"
+    [[ -z "$pkg" ]] && continue
+    "$NPM_BIN" install -g "$pkg"
+  done
+}
+
+# =============================================================================
+# Core commands: run / update / upgrade / menu
+# =============================================================================
+
+cmd_run() {
+  ensure_curl
+  ensure_brew
+  ensure_config
+  log "Running full bootstrap using local installer + local SSH engine…"
+  local BOOTSTRAP_START_TIME
+  BOOTSTRAP_START_TIME="$(date +%s)"
+
+  # =============================================================================
+  # Ensure Xcode Command Line Tools (CLT)
+  # =============================================================================
+  if ! xcode-select -p >/dev/null 2>&1; then
+    log "Installing Xcode Command Line Tools (CLT)…"
+    xcode-select --install >/dev/null 2>&1 || {
+      warn "CLT installation triggered. Complete any GUI prompts if displayed."
+    }
+  else
+    log "✔ Xcode Command Line Tools already installed."
+  fi
+
+  # =============================================================================
+  # Ensure Rosetta (Apple Silicon only)
+  # =============================================================================
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    if ! pkgutil --files com.apple.rosetta.update >/dev/null 2>&1; then
+      log "Installing Rosetta…"
+      softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || {
+        warn "Rosetta installation failed or requires GUI confirmation."
+      }
+    else
+      log "✔ Rosetta already installed."
+    fi
+  fi
+
+  # First, run all local installers
+  install_tools
+  install_langs
+  install_apps
+  setup_shell
+  setup_dotfiles
+  setup_git
+  setup_vscode
+  setup_python
+  setup_node
+
+  # Now run local SSH engine
+  local device
+  device="$(hostname | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
+  setup_ssh personal "$device"
+
+
+  local BOOTSTRAP_END_TIME
+  BOOTSTRAP_END_TIME="$(date +%s)"
+  local DURATION="$(( BOOTSTRAP_END_TIME - BOOTSTRAP_START_TIME ))"
+
+  echo "⏱  Total bootstrap time: ${DURATION}s"
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Optional additions you may want to install next:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "• Java (OpenJDK via Homebrew)          : bootstrap install java [8|11|17|21|latest]"
+  echo "• Full Xcode (App Store, ~15GB)        : bootstrap install xcode"
+  echo "• .NET SDK (latest or versioned)       : bootstrap install dotnet [latest|8|7]"
+  echo "• Container runtime                      : bootstrap install container [orbstack|colima|nerdctl]"  
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+}
+
+cmd_verify() {
+  log "Running local verification…"
+  verify_local
+}
+
+cmd_upgrade() {
+  ensure_curl
+  ensure_brew
+  ensure_config
+  log "Upgrading all bootstrap-managed software…"
+
+  # ------------------------------
+  # Homebrew upgrades (core + casks)
+  # ------------------------------
+  log "Updating Homebrew…"
+  brew update || true
+
+  log "Upgrading Homebrew formulas…"
+  brew upgrade || true
+
+  log "Upgrading Homebrew casks…"
+  brew upgrade --cask || true
+
+  # ------------------------------
+  # Runtime managers + languages
+  # ------------------------------
+  log "Upgrading language runtimes…"
+  install_langs   # already upgrade-safe
+
+  # ------------------------------
+  # Global Python packages
+  # ------------------------------
+  log "Upgrading global Python packages…"
+  setup_python     # pip installs are idempotent
+
+  # ------------------------------
+  # Global Node packages
+  # ------------------------------
+  log "Upgrading global Node packages…"
+  setup_node       # npm install -g is upgrade-safe
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Upgrade complete! Consider verifying your environment:"
+  echo ""
+  echo "  bootstrap verify"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+}
+
+cmd_update() {
+  ensure_curl
+  # Determine where this script is located
+  local script_path
+  script_path="$(command -v "$0" 2>/dev/null || echo "$0")"
+
+  if [[ -z "$script_path" || ! -w "$(dirname "$script_path")" ]]; then
+    err "Cannot determine writable script path for self-update (got: $script_path)."
+  fi
+
+  log "Updating ${HELPER_NAME} from ${REPO_BASE}/bootstrap..."
+  local tmp="${script_path}.tmp"
+  if curl -fsSL "${REPO_BASE}/bootstrap" -o "$tmp"     && chmod +x "$tmp"     && mv "$tmp" "$script_path"
+  then
+    log "Self-update complete: $script_path"
+  else
+    err "Failed to update ${HELPER_NAME}."
+  fi
+}
+
+cmd_menu() {
+  cat <<EOF
+Available commands:
+
+  ${HELPER_NAME} run
+    Run the full baseline bootstrap using the local JSON config.
+
+  ${HELPER_NAME} verify
+    Run verification locally using the bootstrap CLI and local JSON config.
+
+  ${HELPER_NAME} upgrade
+    Upgrade all bootstrap-managed software (brew formulas, casks, runtimes, global packages).
+  
+  ${HELPER_NAME} update
+    Update the ${HELPER_NAME} CLI itself from the bootstrap-mac repo.
+
+  ${HELPER_NAME} install java [8|11|17|21|latest]
+    Install OpenJDK via Temurin builds.
+
+  ${HELPER_NAME} install xcode
+    Show instructions for installing Xcode from the App Store.
+
+  ${HELPER_NAME} install dotnet [latest|8|7]
+    Install Microsoft .NET SDK using Homebrew.
+
+  ${HELPER_NAME} install container [orbstack|colima|nerdctl]
+    Install a container runtime.
+
+  ${HELPER_NAME} ssh local [personal|corp|all]
+    Run the SSH engine locally for testing.
+
+  ${HELPER_NAME} menu
+    Show this menu.
+
+EOF
+}
+
+# =============================================================================
+# SSH engine (copied from Stage-1, adapted for bootstrap)
+# =============================================================================
+
+ensure_gh_scope() {
+  local host="$1"
+  local scope="admin:public_key"
+
+  echo "🔎 Checking GitHub OAuth scopes for $host…"
+
+  local scopes
+  scopes="$(gh auth status --hostname "$host" --json scopes -q '.scopes[]' 2>/dev/null | tr '\n' ' ' || true)"
+
+  if [[ "$scopes" =~ $scope ]]; then
+    echo "✔ $host already has required scope: '$scope'"
+    return 0
+  fi
+
+  echo "⚠️ '$scope' scope missing for $host — requesting now…"
+  gh auth refresh -h "$host" -s "$scope" || {
+    echo "❌ Failed to obtain '$scope' scope for $host"
+    return 1
+  }
+
+  echo "✔ Scope '$scope' granted for $host"
+}
+
+setup_ssh() {
+  local mode="$1"
+  local DEVICE_NAME="$2"
+
+  echo "🔐 Setting up SSH identities..."
+  echo "💻 Device: $DEVICE_NAME"
+
+  local SSH_DIR="$HOME/.ssh"
+  mkdir -p "$SSH_DIR"
+  chmod 700 "$SSH_DIR"
+
+  local SSH_CONFIG="$SSH_DIR/config"
+  [[ ! -f "$SSH_CONFIG" ]] && touch "$SSH_CONFIG"
+  chmod 600 "$SSH_CONFIG"
+
+  ensure_key() {
+    local LABEL="$1"          # personal or corp
+    local HOST_ALIAS="$2"     # github.com or github.com-corp
+    local HOSTNAME="$3"       # always github.com
+    local BASEFILE="$4"
+    local KEYFILE="${BASEFILE}-${DEVICE_NAME}"
+
+    echo ""
+    echo "🔑 Ensuring $LABEL SSH key: $KEYFILE"
+
+    if [[ -f "$KEYFILE" ]]; then
+      echo "• Key exists — skipping generation."
+    else
+      echo "• Generating new SSH key for $LABEL..."
+      ssh-keygen -t ed25519 -C "$LABEL@$(hostname)" -f "$KEYFILE" -N ""
+    fi
+
+    chmod 600 "$KEYFILE"
+    chmod 644 "${KEYFILE}.pub"
+
+    echo "• Adding $LABEL key to ssh-agent..."
+    # Only start ssh-agent if it isn't already running
+    [[ -z "${SSH_AGENT_PID:-}" ]] && eval "$(ssh-agent -s)" >/dev/null
+    ssh-add "$KEYFILE" || true
+
+    echo "• Ensuring SSH config entry for $LABEL..."
+    local START_MARK="# >>> bootstrap-ssh $LABEL >>>"
+    local END_MARK="# <<< bootstrap-ssh $LABEL <<<"
+
+    awk -v start="$START_MARK" -v end="$END_MARK" '
+      BEGIN {skip=0}
+      $0 == start {skip=1; next}
+      $0 == end {skip=0; next}
+      skip == 0 {print}
+    ' "$SSH_CONFIG" > "${SSH_CONFIG}.tmp" && mv "${SSH_CONFIG}.tmp" "$SSH_CONFIG"
+
+    {
+      echo "$START_MARK"
+      echo "Host $HOST_ALIAS"
+      echo "  HostName $HOSTNAME"
+      echo "  User git"
+      echo "  AddKeysToAgent yes"
+      echo "  UseKeychain yes"
+      echo "  IdentityFile $KEYFILE"
+      echo "$END_MARK"
+      echo
+    } >> "$SSH_CONFIG"
+    chmod 600 "$SSH_CONFIG"
+
+    echo "• Checking if $LABEL key is already uploaded to GitHub..."
+
+    local KEY_CONTENT
+    KEY_CONTENT="$(cat "${KEYFILE}.pub")"
+
+    if [[ "$LABEL" == "personal" ]]; then
+      if gh api /user/keys --jq '.[].key' 2>/dev/null | grep -Fxq "$KEY_CONTENT"; then
+        echo "✔ $LABEL key already exists on GitHub — skipping upload."
+      else
+        echo "• Uploading $LABEL key to GitHub..."
+        ensure_gh_scope "github.com"
+        gh ssh-key add "${KEYFILE}.pub" \
+          --title "personal-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
+          || echo "⚠️ Could not upload personal key — even after scope refresh."
+      fi
+    else
+      if ! gh auth status --hostname github.com-corp >/dev/null 2>&1; then
+        echo "🔐 Authenticating GitHub CLI for corporate identity..."
+        gh auth login --hostname github.com-corp
+      fi
+
+      if gh api --hostname github.com-corp /user/keys --jq '.[].key' 2>/dev/null | grep -Fxq "$KEY_CONTENT"; then
+        echo "✔ corp key already exists on github.com-corp — skipping upload."
+      else
+        echo "• Uploading corp key to github.com-corp..."
+        ensure_gh_scope "github.com-corp"
+        gh ssh-key add "${KEYFILE}.pub" \
+          --title "corp-${DEVICE_NAME}-bootstrap-$(date +%Y%m%d-%H%M%S)" \
+          --hostname github.com-corp \
+          || echo "⚠️ corporate key upload failed — even after scope refresh."
+      fi
+    fi
+
+    echo "✔ $LABEL identity setup complete."
+  }
+
+  if [[ "$mode" == "personal" || "$mode" == "all" ]]; then
+    ensure_key "personal" "github.com" "github.com" "$SSH_DIR/id_ed25519_personal"
+  fi
+
+  if [[ "$mode" == "corp" || "$mode" == "all" ]]; then
+    ensure_key "corp" "github.com-corp" "github.com" "$SSH_DIR/id_ed25519_corp"
+  fi
+
+  echo ""
+  echo "✅ SSH identity setup finished."
+}
+
+ssh_local() {
+  ensure_curl
+  ensure_brew
+  ensure_config
+
+  local mode
+  mode="${1:-personal}"
+
+  local device
+  device="$(hostname | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
+
+  setup_ssh "$mode" "$device"
+}
+
+# =============================================================================
+# Optional runtimes: java / xcode / dotnet / container
+# =============================================================================
+
+install_java() {
+  ensure_brew
+  local version="${1:-latest}"
+
+  case "$version" in
+    latest|temurin)
+      log "Installing latest Temurin (OpenJDK)..."
+      brew install --cask temurin
+      ;;
+    8|11|17|21)
+      log "Installing Temurin $version..."
+      brew install --cask "temurin${version}"
+      ;;
+    *)
+      err "Unknown Java version: $version (supported: 8, 11, 17, 21, latest)"
+      ;;
+  esac
+
+  log "Java ($version) installation complete."
+}
+
+install_xcode() {
+  log "Full Xcode installation is large (~15GB) and best installed from the App Store."
+  echo ""
+  echo "1. Open the App Store:"
+  echo "   https://apps.apple.com/app/xcode/id497799835"
+  echo "2. Install Xcode from there."
+  echo ""
+  echo "If you have 'mas' CLI installed, you can also run:"
+  echo "   mas install 497799835"
+  echo ""
+}
+
+install_dotnet() {
+  ensure_brew
+  local version="${1:-latest}"
+
+  case "$version" in
+    latest)
+      log "Installing latest .NET SDK via Homebrew cask..."
+      brew install --cask dotnet-sdk
+      ;;
+    8|7)
+      log "Installing .NET SDK $version..."
+      brew install "dotnet@${version}"
+      ;;
+    *)
+      err "Unknown .NET version: $version (supported: latest, 8, 7)"
+      ;;
+  esac
+
+  log ".NET ($version) installation complete."
+}
+
+install_container() {
+  ensure_brew
+  local runtime="${1:-orbstack}"
+
+  case "$runtime" in
+    orbstack)
+      log "Installing OrbStack (fast, integrated Docker replacement)..."
+      brew install --cask orbstack
+      log "OrbStack installed. Launch it once to finish setup."
+      ;;
+    colima)
+      log "Installing colima + docker CLI..."
+      brew install colima docker
+      log "colima installed. Start it with: colima start"
+      ;;
+    nerdctl)
+      log "Installing nerdctl (containerd CLI)..."
+      brew install nerdctl
+      log "nerdctl installed."
+      ;;
+    *)
+      err "Unknown container runtime: $runtime (supported: orbstack, colima, nerdctl)"
+      ;;
+  esac
+}
+
+# =============================================================================
+# Help
+# =============================================================================
+
+show_help() {
+  cat <<EOF
+${HELPER_NAME} — front door for bootstrap-mac
+
+Usage:
+  ${HELPER_NAME} run
+  ${HELPER_NAME} verify   # local verification
+  ${HELPER_NAME} upgrade
+  ${HELPER_NAME} update
+  ${HELPER_NAME} menu
+
+  ${HELPER_NAME} install java [8|11|17|21|latest]
+  ${HELPER_NAME} install xcode
+  ${HELPER_NAME} install dotnet [latest|8|7]
+  ${HELPER_NAME} install container [orbstack|colima|nerdctl]
+  
+  ${HELPER_NAME} ssh local [personal|corp|all]
+    Run the SSH engine locally for testing.
+
+Examples:
+  ${HELPER_NAME} run
+  ${HELPER_NAME} verify
+  ${HELPER_NAME} upgrade
+  ${HELPER_NAME} install java 21
+  ${HELPER_NAME} install container orbstack
+EOF
+}
+
+# =============================================================================
+# Main dispatcher
+# =============================================================================
+
+main() {
+  local cmd="${1:-menu}"
+  shift || true
+
+  case "$cmd" in
+    run)
+      cmd_run
+      ;;
+    verify)
+      cmd_verify
+      ;;
+    upgrade)
+      cmd_upgrade
+      ;;
+    update)
+      cmd_update
+      ;;
+    menu)
+      cmd_menu
+      ;;
+    ssh)
+      local sub="${1:-local}"
+      shift || true
+      case "$sub" in
+        local)
+          ssh_local "$@"
+          ;;
+        *)
+          err "Unknown ssh subcommand: $sub (supported: local)"
+          ;;
+      esac
+      ;;
+    install)
+      local target="${1:-}"
+      shift || true
+      case "$target" in
+        java)      install_java "${1:-}" ;;
+        xcode)     install_xcode ;;
+        dotnet)    install_dotnet "${1:-}" ;;
+        container) install_container "${1:-}" ;;
+        ""|help)   show_help ;;
+        *)
+          err "Unknown install target: $target"
+          ;;
+      esac
+      ;;
+    help|-h|--help)
+      show_help
+      ;;
+    *)
+      err "Unknown command: $cmd (try '${HELPER_NAME} help')"
+      ;;
+  esac
+}
+
+main "$@"
