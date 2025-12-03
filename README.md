@@ -4,15 +4,15 @@ A fully automated macOS basic dev bootstrap pipeline.
 This repository provides a **safe**, **public**, **repeatable**, and **idempotent** bootstrap system that configures a completely fresh Mac into a fully working development environment with one command:
 
 ```
-curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-stage-0.sh | sh
+curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-install.sh | sh
 ```
 
 This single command:
 
 1. **Installs or updates Homebrew**
 2. **Installs or updates Homebrew Bash 5.x** (required for modern scripting)
-3. **Downloads the unified bootstrap + JSON config**
-4. **Executes the full bootstrap under Bash 5.x**
+3. **Downloads the `bootstrap` CLI and JSON config**
+4. **Executes the full bootstrap using the local `bootstrap` engine under Bash 5.x**
 5. **Installs all CLI tools & apps from JSON**
 6. **Installs Python & Node runtimes via pyenv & nvm**
 7. **Installs global Python and Node packages**
@@ -32,7 +32,7 @@ This repo intentionally contains **everything required** for the full bootstrap:
 | File | Purpose |
 |------|---------|
 | `bootstrap-stage-0.sh` | Minimal installer. POSIX-safe. Works on any Mac, even before Homebrew exists. |
-| `bootstrap-stage-1.sh` | Full unified bootstrap. Requires Bash 5.x. Fully self‑contained. |
+| `bootstrap-stage-1.sh` | Legacy compatibility script (deprecated). |
 | `bootstrap-config.json` | Declarative configuration of tools, apps, runtimes, themes, global packages, VSCode extensions, etc. |
 | `dotfiles/` | Dotfiles fetched during the bootstrap (`.zshrc`, `.gitconfig`, `.gitignore_global`). |
 
@@ -47,25 +47,22 @@ Executed via `sh`, this script:
 - Ensures Homebrew exists  
 - Installs/updates Homebrew Bash  
 - Installs jq (JSON parser)  
-- Downloads stage‑1 and bootstrap‑config.json into `/tmp`  
-- Executes stage‑1 under Homebrew Bash 5.x  
+- Downloads the `bootstrap` CLI and JSON config
+- Executes the full bootstrap using the local `bootstrap` engine under Bash 5.x  
 
 Stage‑0 has **zero dependencies** and works on any new Apple Silicon macOS installation.
 
 
-## Stage 1 — Unified Bootstrap  
-Executed under Bash 5.x, this script:
+## Stage 1 — Legacy Compatibility (Deprecated)
+This script now exists only for legacy compatibility and optional direct debugging.
 
-- Verifies shell and environment
-- Auto‑installs Rosetta on Apple Silicon (if missing)
-- Parses all install lists from `bootstrap-config.json`
-- Runs every installer function idempotently
-- Fetches dotfiles from this repo
-- Manages SSH identities (personal + corp)
-- Uploads keys to GitHub automatically with required scopes
-- Provides a `--verify` mode for diagnostics
+The real bootstrap engine is the local `bootstrap` CLI, which:
+- Installs CLI tools, apps, runtimes, packages
+- Configures shell, git, dotfiles, VS Code
+- Manages SSH identities
+- Handles verification and upgrades
 
-Stage‑1 is fully self‑contained and does not require git or private repos.
+Stage‑1 remains in the repo only to support older versions and is no longer used during normal bootstrap runs.
 
 
 # 📦 What Gets Installed (With Links)
@@ -198,20 +195,19 @@ SSH config blocks are fully regenerated on each run while GitHub key upload is s
 At any time, you can run:
 
 ```
-bootstrap-stage-1.sh --verify
+bootstrap verify
 ```
 
-This prints a diagnostic summary:
+This runs the fully local verification engine inside the `bootstrap` CLI.  
+It checks:
 
 - Bash version  
-- Homebrew version  
-- pyenv/nvm installed?  
-- Node + Python runtime status  
-- SSH key presence  
-- Installed tools  
-- VSCode extension count  
-
-Useful for debugging and machine health checks.
+- Homebrew health  
+- Required CLI tools from JSON  
+- Required apps from JSON  
+- pyenv/nvm availability  
+- Python/Node versions  
+- Presence of SSH keys
 
 
 # 🧹 Idempotency
@@ -231,4 +227,3 @@ Re-running the bootstrap will:
 - Skip re-uploading keys  
 - Skip redundant installs  
 - Preserve backups of dotfiles  
-

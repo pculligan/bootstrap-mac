@@ -512,26 +512,27 @@ EOF
 # =============================================================================
 
 ensure_gh_scope() {
-  local host="$1"
-  local scope="admin:public_key"
+  local gh_host="$1"
+  local required_scope="admin:public_key"
 
-  echo "🔎 Checking GitHub OAuth scopes for $host…"
+  echo "🔎 Checking GitHub OAuth scopes for $gh_host…"
 
-  local scopes
-  scopes="$(gh auth status --hostname "$host" --json scopes -q '.scopes[]' 2>/dev/null | tr '\n' ' ' || true)"
+  # Safely capture scopes without triggering set -u
+  local scopes=""
+  scopes="$(gh auth status --hostname "$gh_host" --json scopes -q '.scopes[]?' 2>/dev/null | tr '\n' ' ' || true)"
 
-  if [[ "$scopes" =~ $scope ]]; then
-    echo "✔ $host already has required scope: '$scope'"
+  if [[ "$scopes" =~ $required_scope ]]; then
+    echo "✔ $gh_host already has required scope: '$required_scope'"
     return 0
   fi
 
-  echo "⚠️ '$scope' scope missing for $host — requesting now…"
-  gh auth refresh -h "$host" -s "$scope" || {
-    echo "❌ Failed to obtain '$scope' scope for $host"
+  echo "⚠️ '$required_scope' scope missing for $gh_host — requesting now…"
+  if gh auth refresh -h "$gh_host" -s "$required_scope"; then
+    echo "✔ Scope '$required_scope' granted for $gh_host"
+  else
+    echo "❌ Failed to obtain '$required_scope' scope for $gh_host"
     return 1
-  }
-
-  echo "✔ Scope '$scope' granted for $host"
+  fi
 }
 
 setup_ssh() {
