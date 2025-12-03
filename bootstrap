@@ -512,12 +512,23 @@ EOF
 # =============================================================================
 
 ensure_gh_scope() {
-  local gh_host="$1"
+  # Normalize hostname argument to avoid strict-mode errors
+  local raw_host="$1"
+  local gh_host
+
+  # Strip whitespace + stray punctuation + hidden Unicode chars
+  gh_host="$(printf "%s" "$raw_host" | tr -d '[:space:]' | tr -d '?')"
+
+  if [[ -z "$gh_host" ]]; then
+    echo "❌ ensure_gh_scope: empty hostname after sanitization"
+    return 1
+  fi
+
   local required_scope="admin:public_key"
 
   echo "🔎 Checking GitHub OAuth scopes for $gh_host…"
 
-  # Safely capture scopes without triggering set -u
+  # Safely capture scopes (avoid strict-mode errors)
   local scopes=""
   scopes="$(gh auth status --hostname "$gh_host" --json scopes -q '.scopes[]?' 2>/dev/null | tr '\n' ' ' || true)"
 
