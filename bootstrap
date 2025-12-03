@@ -337,7 +337,7 @@ cmd_run() {
   ensure_curl
   ensure_brew
   ensure_config
-  log "Running full bootstrap using local installer + local SSH engine…"
+  log "Running full bootstrap using local installer + local SSH engine..."
   local BOOTSTRAP_START_TIME
   BOOTSTRAP_START_TIME="$(date +%s)"
 
@@ -345,7 +345,7 @@ cmd_run() {
   # Ensure Xcode Command Line Tools (CLT)
   # =============================================================================
   if ! xcode-select -p >/dev/null 2>&1; then
-    log "Installing Xcode Command Line Tools (CLT)…"
+    log "Installing Xcode Command Line Tools (CLT)..."
     xcode-select --install >/dev/null 2>&1 || {
       warn "CLT installation triggered. Complete any GUI prompts if displayed."
     }
@@ -358,7 +358,7 @@ cmd_run() {
   # =============================================================================
   if [[ "$(uname -m)" == "arm64" ]]; then
     if ! pkgutil --files com.apple.rosetta.update >/dev/null 2>&1; then
-      log "Installing Rosetta…"
+      log "Installing Rosetta..."
       softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || {
         warn "Rosetta installation failed or requires GUI confirmation."
       }
@@ -402,7 +402,7 @@ cmd_run() {
 }
 
 cmd_verify() {
-  log "Running local verification…"
+  log "Running local verification..."
   verify_local
 }
 
@@ -410,36 +410,36 @@ cmd_upgrade() {
   ensure_curl
   ensure_brew
   ensure_config
-  log "Upgrading all bootstrap-managed software…"
+  log "Upgrading all bootstrap-managed software..."
 
   # ------------------------------
   # Homebrew upgrades (core + casks)
   # ------------------------------
-  log "Updating Homebrew…"
+  log "Updating Homebrew..."
   brew update || true
 
-  log "Upgrading Homebrew formulas…"
+  log "Upgrading Homebrew formulas..."
   brew upgrade || true
 
-  log "Upgrading Homebrew casks…"
+  log "Upgrading Homebrew casks..."
   brew upgrade --cask || true
 
   # ------------------------------
   # Runtime managers + languages
   # ------------------------------
-  log "Upgrading language runtimes…"
+  log "Upgrading language runtimes..."
   install_langs   # already upgrade-safe
 
   # ------------------------------
   # Global Python packages
   # ------------------------------
-  log "Upgrading global Python packages…"
+  log "Upgrading global Python packages..."
   setup_python     # pip installs are idempotent
 
   # ------------------------------
   # Global Node packages
   # ------------------------------
-  log "Upgrading global Node packages…"
+  log "Upgrading global Node packages..."
   setup_node       # npm install -g is upgrade-safe
 
   echo ""
@@ -526,7 +526,7 @@ ensure_gh_scope() {
 
   local required_scope="admin:public_key"
 
-  echo "🔎 Checking GitHub OAuth scopes for $gh_host…"
+  echo "🔎 Checking GitHub OAuth scopes for $gh_host..."
 
   # Safely capture scopes (avoid strict-mode errors)
   local scopes=""
@@ -537,7 +537,7 @@ ensure_gh_scope() {
       return 0
   fi
 
-  echo "⚠️ '$required_scope' scope missing for $gh_host — requesting now…"
+  echo "⚠️ '$required_scope' scope missing for $gh_host — requesting now..."
   if gh auth refresh -h "$gh_host" -s "$required_scope"; then
     echo "✔ Scope '$required_scope' granted for $gh_host"
   else
