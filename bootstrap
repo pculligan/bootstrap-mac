@@ -114,8 +114,8 @@ verify_local() {
 
   local ok=0
 
-  # Tools
-  while IFS= read -r tool; do
+  # Tools (merged from layers)
+  for tool in "${EFFECTIVE_TOOLS[@]}"; do
     [[ -z "$tool" ]] && continue
     if ! command -v "$tool" >/dev/null 2>&1; then
       warn "Missing CLI tool: $tool"
@@ -123,7 +123,47 @@ verify_local() {
     else
       echo "[ok] Tool present: $tool"
     fi
-  done < <(jq -r '.base.tools[]?' "$CONFIG_PATH")
+  done
+
+  echo ""
+  echo "[check] Verifying Python global packages..."
+  for pkg in "${EFFECTIVE_PYTHON[@]}"; do
+    [[ -z "$pkg" ]] && continue
+    if ! pip3 show "$pkg" >/dev/null 2>&1; then
+      warn "Missing Python package: $pkg"
+      ok=1
+    else
+      echo "[ok] Python package present: $pkg"
+    fi
+  done
+
+  echo ""
+  echo "[check] Verifying Node global packages..."
+  for pkg in "${EFFECTIVE_NODE[@]}"; do
+    [[ -z "$pkg" ]] && continue
+    if ! npm list -g "$pkg" >/dev/null 2>&1; then
+      warn "Missing Node package: $pkg"
+      ok=1
+    else
+      echo "[ok] Node package present: $pkg"
+    fi
+  done
+
+  echo ""
+  echo "[check] Verifying VSCode extensions..."
+  if command -v code >/dev/null 2>&1; then
+    for ext in "${EFFECTIVE_VSCODE_EXT[@]}"; do
+      [[ -z "$ext" ]] && continue
+      if ! code --list-extensions | grep -qx "$ext"; then
+        warn "Missing VSCode extension: $ext"
+        ok=1
+      else
+        echo "[ok] VSCode extension present: $ext"
+      fi
+    done
+  else
+    warn "VSCode CLI not available; skipping extension checks."
+  fi
 
   echo ""
 
@@ -369,6 +409,13 @@ ensure_gh_scope() {
   local required_scope="admin:public_key"
   echo "[check] Checking GitHub OAuth scopes for $gh_host..."
 
+  # First, ensure gh is authenticated for this host at all
+  if ! gh auth status --hostname "$gh_host" >/dev/null 2>&1; then
+    echo "[warn] gh is not authenticated for $gh_host; skipping scope refresh."
+    return 1
+  fi
+
+  # Safely capture scopes (avoid strict-mode errors when scopes is empty)
   local scopes=""
   scopes="$(gh auth status --hostname "$gh_host" --json scopes -q '.scopes[]?' 2>/dev/null | tr '\n' ' ' || true)"
 
@@ -380,6 +427,7 @@ ensure_gh_scope() {
   echo "[warn] '$required_scope' scope missing for $gh_host — requesting..."
   if gh auth refresh -h "$gh_host" -s "$required_scope"; then
     echo "[ok] Scope '$required_scope' granted for $gh_host"
+    return 0
   else
     echo "[error] Failed to obtain scope '$required_scope' for $gh_host"
     return 1
@@ -463,9 +511,10 @@ setup_ssh() {
           || echo "[warn] Could not upload personal key after scope refresh."
       fi
     else
+      # Corporate GitHub identity is optional and must be pre-authenticated
       if ! gh auth status --hostname github.com-corp >/dev/null 2>&1; then
-        echo "[ssh] Authenticating GitHub CLI for corporate identity..."
-        gh auth login --hostname github.com-corp
+        echo "[warn] gh is not authenticated for github.com-corp; skipping corp key upload."
+        return
       fi
 
       if gh api --hostname github.com-corp /user/keys --jq '.[].key' 2>/dev/null | grep -Fxq "$KEY_CONTENT"; then
@@ -553,12 +602,12 @@ install_dotnet() {
       log "Installing latest .NET SDK via Homebrew cask..."
       brew install --cask dotnet-sdk
       ;;
-    8|7)
+    10|9|8|7)
       log "Installing .NET SDK $version..."
       brew install "dotnet@${version}"
       ;;
     *)
-      err "Unknown .NET version: $version (supported: latest, 8, 7)"
+      err "Unknown .NET version: $version (supported: latest, 10, 9, 8, 7)"
       ;;
   esac
 
@@ -634,7 +683,14 @@ cmd_run() {
 
   local device
   device="$(hostname | tr ' ' '-' | tr '[:upper:]' '[:lower:]')"
-  setup_ssh "personal" "$device"
+
+  # Choose SSH mode based on PROFILE
+  local ssh_mode="personal"
+  if [[ "$PROFILE" == "corp" ]]; then
+    ssh_mode="all"
+  fi
+
+  setup_ssh "$ssh_mode" "$device"
 
   local BOOTSTRAP_END_TIME
   BOOTSTRAP_END_TIME="$(date +%s)"
