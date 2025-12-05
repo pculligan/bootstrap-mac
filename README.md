@@ -1,7 +1,7 @@
-# 🚀 Mac Bootstrap  
-A fully automated macOS basic dev bootstrap pipeline.
+# Mac Bootstrap  
+A fully automated, idempotent Apple Silicon macOS bootstrap pipeline for development machines.
 
-This repository provides a **safe**, **public**, **repeatable**, and **idempotent** bootstrap system that configures a completely fresh Mac into a fully working development environment with one command:
+This project configures a brand‑new Mac into a complete development environment using one command:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootstrap-install.sh | sh
@@ -9,221 +9,343 @@ curl -fsSL https://raw.githubusercontent.com/pculligan/bootstrap-mac/main/bootst
 
 This single command:
 
-1. **Installs or updates Homebrew**
-2. **Installs or updates Homebrew Bash 5.x** (required for modern scripting)
-3. **Downloads the `bootstrap` CLI and JSON config**
-4. **Executes the full bootstrap using the local `bootstrap` engine under Bash 5.x**
-5. **Installs all CLI tools & apps from JSON**
-6. **Installs Python & Node runtimes via pyenv & nvm**
-7. **Installs global Python and Node packages**
-8. **Configures shell environment (zsh + brew shellenv)**
-9. **Installs Git configuration and global ignores**
-10. **Fetches dotfiles directly from this repo**
-11. **Installs VS Code extensions**
-12. **Creates SSH keys (personal and/or corporate)**
-13. **Uploads keys to GitHub with correct scopes**
-14. **Runs idempotently — safe to re-run anytime**
+1. Installs or updates Homebrew  
+2. Installs Homebrew Bash 5.x (required for the bootstrap engine)  
+3. Installs jq  
+4. Downloads the `bootstrap` CLI and layered JSON config  
+5. Executes the bootstrap engine under Bash 5.x  
+6. Applies the **layered configuration** (base + personal or corp)  
+7. Installs CLI tools, GUI apps, runtimes, and global packages  
+8. Applies shell config, dotfiles, Git, and VS Code extensions  
+9. Sets up SSH (profile‑aware: personal or personal+corp)  
+10. Uploads SSH keys to GitHub only when already authenticated  
+11. Verifies machine state  
+12. Runs safely and idempotently every time  
 
+---
 
-# 📁 Repository Structure
-
-This repo intentionally contains **everything required** for the full bootstrap:
+# Repository Structure
 
 | File | Purpose |
 |------|---------|
-| `bootstrap-stage-0.sh` | Minimal installer. POSIX-safe. Works on any Mac, even before Homebrew exists. |
+| `bootstrap-install.sh` | POSIX installer; installs Homebrew, Bash, jq, and the bootstrap CLI. |
+| `bootstrap` | The full bootstrap engine (profiles, installers, SSH, verify, upgrade). |
+| `bootstrap-config.json` | Declarative layered configuration (base, personal, corp). |
 | `bootstrap-stage-1.sh` | Legacy compatibility script (deprecated). |
-| `bootstrap-config.json` | Declarative configuration of tools, apps, runtimes, themes, global packages, VSCode extensions, etc. |
-| `dotfiles/` | Dotfiles fetched during the bootstrap (`.zshrc`, `.gitconfig`, `.gitignore_global`). |
+| `dotfiles/` | `.zshrc`, `.gitconfig`, `.gitignore_global`. |
 
-No private repositories are required.
+Everything required for bootstrapping is within this repository.
 
+---
 
-# 🧩 How the Bootstrap Works
+# How the Bootstrap Works
 
-## Stage 0 — POSIX Installer  
-Executed via `sh`, this script:
+## Stage 0 — POSIX Installer
+Runs under `/bin/sh`, performs:
 
-- Ensures Homebrew exists  
-- Installs/updates Homebrew Bash  
-- Installs jq (JSON parser)  
-- Downloads the `bootstrap` CLI and JSON config
-- Executes the full bootstrap using the local `bootstrap` engine under Bash 5.x  
+- Homebrew installation (if needed)  
+- Bash 5.x installation  
+- jq installation  
+- Download of the `bootstrap` CLI and `bootstrap-config.json`  
+- Invocation of the main bootstrap engine  
 
-Stage‑0 has **zero dependencies** and works on any new Apple Silicon macOS installation.
+No dependencies required. Works on any fresh macOS install.
 
+---
 
-## Stage 1 — Legacy Compatibility (Deprecated)
-This script now exists only for legacy compatibility and optional direct debugging.
+## Bootstrap CLI — The Modern Engine
 
-The real bootstrap engine is the local `bootstrap` CLI, which:
-- Installs CLI tools, apps, runtimes, packages
-- Configures shell, git, dotfiles, VS Code
-- Manages SSH identities
-- Handles verification and upgrades
+This is the real bootstrap layer. It:
 
-Stage‑1 remains in the repo only to support older versions and is no longer used during normal bootstrap runs.
+- Loads and merges layered configuration (`base`, `personal`, `corp`)  
+- Installs CLI tools and GUI apps  
+- Installs pyenv, nvm, go, and rust  
+- Installs Python & Node versions from JSON  
+- Installs global Python and Node packages  
+- Applies shell configuration and dotfiles  
+- Writes Git config and VS Code extensions  
+- Sets up SSH identities (profile‑aware)  
+- Uploads keys to GitHub only when authenticated  
+- Provides `run`, `verify`, `upgrade`, `update`, and optional installs  
+- Runs entirely locally (Stage‑1 no longer participates)
 
+---
 
-# 📦 What Gets Installed (With Links)
+# Layered Configuration (base / personal / corp)
 
-Below is the complete list of everything installed, grouped by category, driven entirely by `bootstrap-config.json`.
+The JSON configuration defines layers:
 
+```
+{
+  "base": { ... },
+  "personal": { ... },
+  "corp": { ... },
+  "python_version": "3.14",
+  "node_version": "lts"
+}
+```
 
-## 🧰 CLI Tools  
-(Defined in `tools` array)
+### Base Layer  
+Installed on **every** machine.  
+Contains CLI tools, core apps, runtimes, global packages, VS Code extensions.
 
-| Tool | Description | Link |
-|------|-------------|------|
-| `jq` | JSON query processor | https://stedolan.github.io/jq/ |
-| `yq` | YAML processor | https://github.com/mikefarah/yq |
-| `fzf` | Fuzzy finder | https://github.com/junegunn/fzf |
-| `ripgrep` | Fast search | https://github.com/BurntSushi/ripgrep |
-| `fd` | Modern `find` alternative | https://github.com/sharkdp/fd |
-| `tree` | Directory tree viewer | https://linux.die.net/man/1/tree |
-| `htop` | System monitor | https://htop.dev |
-| `wget` | Network downloader | https://www.gnu.org/software/wget/ |
-| `curl` | HTTP client (Homebrew version) | https://curl.se |
-| `bat` | `cat` with syntax highlighting | https://github.com/sharkdp/bat |
-| `tldr` | Simplified man pages | https://tldr.sh |
-| `zoxide` | Smarter `cd` | https://github.com/ajeetdsouza/zoxide |
+### Personal Layer  
+Installed only when profile = `personal` (default).  
+Typical user-level apps (e.g., ChatGPT, WhatsApp, Raycast).
 
+### Corp Layer  
+Installed only when profile = `corp`.  
+Contains only corporate‑safe extras (e.g., RealVNC Viewer).  
+Also triggers *corporate SSH* setup when GitHub Enterprise auth exists.
 
-## 🖥 Applications  
-(Defined in `apps` array — installed via Homebrew Cask)
+### Profile Selection
 
-| App | Purpose | Link |
-|------|---------|------|
-| iTerm2 | Terminal emulator | https://iterm2.com |
-| Visual Studio Code | Editor | https://code.visualstudio.com |
-| Google Chrome | Browser | https://www.google.com/chrome |
-| Slack | Communication | https://slack.com |
-| Raycast | Launcher / productivity | https://www.raycast.com |
+```
+bootstrap run --profile personal   # default
+bootstrap run --profile base
+bootstrap run --profile corp
+```
 
+### Merging Rules
 
-## 🐍 Python Runtime + Packages  
-Driven by:
+- Base layer always applied  
+- Personal or corp layer overlays base  
+- Installers and verification operate on merged arrays  
+- SSH setup mode adapts to profile  
 
-- `"python_version": "3.14"`
-- `"python": [...]`
+---
 
-Installed via **pyenv**:
+# What Gets Installed
 
-### Runtime:
-- Python **3.14.x**
+All installations are driven by `bootstrap-config.json`.
 
-### Global Packages:
-| Package | Purpose |
-|---------|---------|
-| `requests` | HTTP client |
+---
 
+## CLI Tools (Homebrew)
 
-## 🟩 Node.js Runtime + Packages  
-Driven by:
+Installed from `base.tools[]`, including:
 
-- `"node_version": "lts"`
-- `"node": [...]`
+- jq, yq, fzf, ripgrep, fd, tree, htop  
+- wget, curl, bat, tldr, zoxide  
 
-Installed via **nvm**:
+---
 
-### Runtime:
-- Latest Node LTS
+## Applications (Homebrew Cask)
 
-### Global Packages:
-| Package | Purpose |
-|---------|---------|
-| `typescript` | TS compiler |
+Installed from `base.apps[]`, `personal.apps[]`, or `corp.apps[]`.
 
+Base includes:
 
-## 🧬 Runtime Managers  
-(from `runtime_managers`)
+- iTerm2  
+- Visual Studio Code  
+- Google Chrome  
+- Slack  
+- Raycast  
 
-- `pyenv` → Python versions  
-- `nvm` → Node versions  
-- `go` → Go language runtime  
-- `rust` → Rust toolchain (via Homebrew)  
+Personal includes:
 
+- ChatGPT  
+- WhatsApp  
 
-## ☁️ Infrastructure / DevOps  
-(from `infra_devops`)
+Corp includes:
 
-| Tool | Purpose | Link |
-|------|---------|------|
-| `awscli` | AWS CLI | https://aws.amazon.com/cli/ |
-| `terraform` | IaC tooling | https://www.terraform.io |
-| `kubectl` | Kubernetes CLI | https://kubernetes.io |
-| `helm` | Kubernetes package manager | https://helm.sh |
-| `k9s` | Kubernetes terminal UI | https://k9scli.io |
+- RealVNC Viewer  
 
+---
 
-## 📄 Documentation Tools  
-(from `documentation_tools`)
+## Python Runtime + Global Packages
 
-| Tool | Purpose | Link |
-|------|---------|------|
-| `pandoc` | Document converter | https://pandoc.org |
+Installed via **pyenv** using:
 
+```
+"python_version": "3.14"
+"python": ["requests", ...]
+```
 
-## 🎨 Terminal Theme  
-(from `terminal_theme`)
+---
 
-- `powerlevel10k` → Recommended zsh theme  
-  https://github.com/romkatv/powerlevel10k
+## Node.js Runtime + Global Packages
 
+Installed via **nvm** using:
 
-# 🔐 SSH Identity Automation
+```
+"node_version": "lts"
+"node": ["typescript", ...]
+```
 
-The bootstrap fully manages:
+---
 
-### ✔ Personal GitHub identity  
-- Generates key  
+## Runtime Managers
+
+From `runtime_managers[]`:
+
+- pyenv  
+- nvm  
+- go  
+- rust  
+
+---
+
+## Infra / DevOps Tools
+
+From `infra_devops[]`:
+
+- awscli  
+- terraform  
+- kubectl  
+- helm  
+- k9s  
+
+---
+
+## Documentation Tools
+
+From `documentation_tools[]`:
+
+- pandoc  
+
+---
+
+## Terminal Theme
+
+From `terminal_theme[]`:
+
+- powerlevel10k  
+
+---
+
+# SSH Identity Automation (Profile‑Aware)
+
+### Personal Mode (base/personal profiles)
+
+- Generates personal SSH key  
+- Writes SSH config block  
 - Adds to ssh-agent  
-- Writes config block  
-- Uploads key to GitHub  
-- Requests `admin:public_key` scope automatically  
-- Skips upload if key already exists
+- Uploads to GitHub only if authenticated  
+- Never forces authentication  
+- Never re-uploads  
 
-### ✔ Corporate GitHub identity  
-Same process, but under `github.com-corp` hostname.
+### Corporate Mode (`--profile corp`)
 
-### ✔ Idempotent  
-SSH config blocks are fully regenerated on each run while GitHub key upload is skipped if the key already exists.
+- Generates personal + corp SSH keys  
+- Writes distinct corp host block (`Host github.com-corp`)  
+- Uploads corp key only if GitHub Enterprise auth already exists  
+- Never forces a corporate login on personal machines  
 
+### Idempotency  
+Keys are never re-generated, config is regenerated cleanly, and GitHub uploads only occur once.
 
-# 🔧 Verification Mode
+---
 
-At any time, you can run:
+# Verification Mode
 
 ```
 bootstrap verify
 ```
 
-This runs the fully local verification engine inside the `bootstrap` CLI.  
-It checks:
+Verifies merged configuration:
 
 - Bash version  
 - Homebrew health  
-- Required CLI tools from JSON  
-- Required apps from JSON  
-- pyenv/nvm availability  
-- Python/Node versions  
-- Presence of SSH keys
+- Required CLI tools (merged layers)  
+- Required GUI apps  
+- Python runtime + packages  
+- Node runtime + packages  
+- VS Code extensions  
+- SSH keys appropriate to profile  
 
+Exit codes:
+- `0` = machine matches config  
+- `1` = drift or missing items  
 
-# 🧹 Idempotency
+---
 
-The entire bootstrap system is:
+# Upgrade Mode
 
-- **Safe to run multiple times**
-- **Non-destructive**
-- **Self-healing**
-- **Drift-correcting**
+```
+bootstrap upgrade
+```
 
-Re-running the bootstrap will:
+Upgrades all bootstrap-managed software:
 
-- Upgrade tools  
-- Reapply configs  
-- Refresh SSH scopes  
-- Skip re-uploading keys  
-- Skip redundant installs  
-- Preserve backups of dotfiles  
+- brew update  
+- brew upgrade formulas  
+- brew upgrade casks  
+- runtime upgrades (pyenv, nvm, rust, go)  
+- upgrades global Python/Node packages  
+
+Does not modify:
+- Dotfiles  
+- Shell config  
+- Keys  
+- User preferences  
+
+---
+
+# Update (Self-Update)
+
+```
+bootstrap update
+```
+
+Downloads the latest version of the bootstrap CLI and atomically replaces itself.
+
+---
+
+# Examples
+
+### Full bootstrap (personal mode)
+```
+bootstrap run
+```
+
+### Corporate developer machine
+```
+bootstrap run --profile corp
+```
+
+### Base only
+```
+bootstrap run --profile base
+```
+
+### Upgrade installed software
+```
+bootstrap upgrade
+```
+
+### Verify configuration
+```
+bootstrap verify
+```
+
+### Manually test SSH setup
+```
+bootstrap ssh local personal
+bootstrap ssh local corp
+```
+
+---
+
+# Idempotency Guarantees
+
+Every run:
+
+- Is safe and repeatable  
+- Upgrades rather than overwrites  
+- Reapplies configuration cleanly  
+- Never regenerates keys  
+- Never overwrites user dotfiles without backup  
+- Corrects drift  
+- Skips all redundant installs  
+
+This system is safe to run as often as you want.
+
+---
+
+# Notes
+
+- Script is ASCII-only to be fully strict-mode-safe  
+- Stage‑1 is retained only for legacy reasons  
+- Bootstrap CLI is the authoritative, modern engine  
+- Config is layered for personal vs corporate environments  
